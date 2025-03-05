@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XDC Masternode Rewards Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>XDC Masternode Rewards Calculator</h1>
+    <form id="inputForm">
+        <label for="rpcUrl">RPC URL (default: https://earpc.xinfin.network):</label>
+        <input type="text" id="rpcUrl" placeholder="https://earpc.xinfin.network">
+
+        <label for="startDate">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="startDate" required>
+
+        <label for="endDate">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="endDate" required>
+
+        <label for="ownerAddr">Masternode Owner Address (0x... or xdc...):</label>
+        <input type="text" id="ownerAddr" required placeholder="e.g., xdc9a46aad8b1e2d60f9e6a5bfbf83adba45643ca37">
+
+        <button type="submit">Calculate Rewards</button>
+    </form>
+    <div id="output"></div>
+
+    <script>
+        // Convert xdc prefix to 0x
+        function convertAddress(addr) {
+            return addr.startsWith('xdc') ? '0x' + addr.slice(3) : addr;
+        }
+
+        // Validate date format (YYYY-MM-DD)
+        function validateDate(dateStr) {
+            const regex = /^\d{4}-\d{2}-\d{2}$/;
+            return regex.test(dateStr);
+        }
+
+        // Convert hex to decimal
+        function hexToDec(hex) {
+            if (hex.startsWith('0x')) {
+                return BigInt(hex).toString();
+            }
+            return hex; // Already decimal
+        }
+
+        // Format wei to XDC
+        function weiToXdc(wei) {
+            return (BigInt(wei) / BigInt(1000000000000000000n)).toString() + '.' +
+                   (BigInt(wei) % BigInt(1000000000000000000n)).toString().padStart(18, '0');
+        }
+
+        // RPC call helper
+        async function rpcCall(url, method, params) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+            });
+            const data = await response.json();
+            if (!data.result) throw new Error(`RPC Error: ${data.error?.message || 'No result'}`);
+            return data.result;
+        }
+
+        // XDCScan API call helper
+        async function xdcScanCall(endpoint, params) {
+            const url = `https://api.xdcscan.io/api?module=account&${params}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.status !== '1') throw new Error(`XDCScan Error: ${data.message}`);
+            return data.result;
+        }
+
+        // Binary search for block by timestamp
+        async function findBlockByTimestamp(rpcUrl, targetTimestamp, latestBlock) {
+            let low = 0;
+            let high = parseInt(latestBlock, 16);
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const blockHex = '0x' + mid.toString(16);
+                const block = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [blockHex, false]);
+                const blockTimestamp = parseInt(block.timestamp, 16);
+                if (blockTimestamp < targetTimestamp) low = mid + 1;
+                else high = mid - 1;
+            }
+            return low;
+        }
+
+        // Main calculation function
+        async function calculateRewards(event) {
+            event.preventDefault();
+            const output = document.getElementById('output');
+            output.textContent = 'Calculating...\n';
+            try {
+                const rpcUrl = document.getElementById('rpcUrl').value || 'https://earpc.xinfin.network';
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                let ownerAddr = document.getElementById('ownerAddr').value;
+
+                // Validate inputs
+                if (!validateDate(startDate) || !validateDate(endDate)) throw new Error('Invalid date format. Use YYYY-MM-DD');
+                ownerAddr = convertAddress(ownerAddr);
+                if (!/^0x[a-fA-F0-9]{40}$/.test(ownerAddr)) throw new Error('Invalid address format');
+
+                // Convert dates to timestamps
+                const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+                const endTimestamp = Math.floor(new Date(endDate).setHours(23, 59, 59, 999) / 1000);
+
+                // Get latest block
+                const latestBlock = await rpcCall(rpcUrl, 'eth_blockNumber', []);
+                output.textContent += `Latest block: ${parseInt(latestBlock, 16)}\n`;
+
+                // Find start and end blocks
+                const startBlock = await findBlockByTimestamp(rpcUrl, startTimestamp, latestBlock);
+                const endBlock = await findBlockByTimestamp(rpcUrl, endTimestamp, latestBlock);
+                output.textContent += `Start block: ${startBlock}\nEnd block: ${endBlock}\n`;
+
+                // Get balances
+                const startBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, '0x' + startBlock.toString(16)]);
+                const endBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, '0x' + endBlock.toString(16)]);
+                const startBalanceDec = hexToDec(startBalance);
+                const endBalanceDec = hexToDec(endBalance);
+                output.textContent += `Starting balance at block ${startBlock}: ${startBalance} (hex), ${startBalanceDec} (wei), ${weiToXdc(startBalanceDec)} XDC\n`;
+                output.textContent += `Ending balance at block ${endBlock}: ${endBalance} (hex), ${endBalanceDec} (wei), ${weiToXdc(endBalanceDec)} XDC\n`;
+
+                // Calculate transactions
+                let transfersIn = 0n;
+                let transfersOut = 0n;
+                let totalFees = 0n;
+
+                // Normal transactions
+                let page = 1;
+                const offset = 10000;
+                while (true) {
+                    const params = `action=txlist&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const txs = await xdcScanCall('account', params);
+                    if (!txs.result || txs.result.length === 0) break;
+
+                    output.textContent += `Normal TXs (Page ${page}, Count: ${txs.result.length}):\n`;
+                    for (const tx of txs.result) {
+                        const valueDec = BigInt(tx.value);
+                        const gasUsedDec = BigInt(tx.gasUsed);
+                        const gasPriceDec = BigInt(tx.gasPrice);
+                        output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei, Gas Used: ${gasUsedDec}, Gas Price: ${gasPriceDec} wei\n`;
+
+                        if (tx.to.toLowerCase() === ownerAddr.toLowerCase()) {
+                            transfersIn += valueDec;
+                            output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Total In: ${weiToXdc(transfersIn)}\n`;
+                        }
+                        if (tx.from.toLowerCase() === ownerAddr.toLowerCase()) {
+                            transfersOut += valueDec;
+                            const fee = gasUsedDec * gasPriceDec;
+                            totalFees += fee;
+                            output.textContent += `  Outgoing: ${weiToXdc(valueDec)} XDC, Fee: ${weiToXdc(fee)} XDC, Total Out: ${weiToXdc(transfersOut)}, Total Fees: ${weiToXdc(totalFees)}\n`;
+                        }
+                    }
+                    if (txs.result.length < offset) break;
+                    page++;
+                }
+
+                // Internal transactions
+                page = 1;
+                while (true) {
+                    const params = `action=txlistinternal&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const internalTxs = await xdcScanCall('account', params);
+                    if (!internalTxs.data || internalTxs.data.length === 0) break;
+
+                    output.textContent += `Internal TXs (Page ${page}, Count: ${internalTxs.data.length}):\n`;
+                    for (const tx of internalTxs.data) {
+                        const valueDec = BigInt(tx.value);
+                        output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei\n`;
+
+                        if (tx.to.toLowerCase() === ownerAddr.toLowerCase()) {
+                            transfersIn += valueDec;
+                            output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Total In: ${weiToXdc(transfersIn)}\n`;
+                        }
+                        if (tx.from.toLowerCase() === ownerAddr.toLowerCase()) {
+                            transfersOut += valueDec;
+                            output.textContent += `  Outgoing: ${weiToXdc(valueDec)} XDC, Total Out: ${weiToXdc(transfersOut)}\n`;
+                        }
+                    }
+                    if (internalTxs.data.length < offset) break;
+                    page++;
+                }
+
+                // Calculate rewards
+                const netBalanceChange = BigInt(endBalanceDec) - BigInt(startBalanceDec);
+                const adjustments = transfersIn - transfersOut - totalFees;
+                const rewards = netBalanceChange - adjustments;
+
+                output.textContent += `\nResults:\n`;
+                output.textContent += `Net Balance Change: ${netBalanceChange} wei (${weiToXdc(netBalanceChange)} XDC)\n`;
+                output.textContent += `Transfers In: ${transfersIn} wei (${weiToXdc(transfersIn)} XDC)\n`;
+                output.textContent += `Transfers Out: ${transfersOut} wei (${weiToXdc(transfersOut)} XDC)\n`;
+                output.textContent += `Total Fees: ${totalFees} wei (${weiToXdc(totalFees)} XDC)\n`;
+                output.textContent += `Adjustments (In - Out - Fees): ${adjustments} wei (${weiToXdc(adjustments)} XDC)\n`;
+                output.textContent += `Total Masternode Rewards from ${startDate} to ${endDate}: ${weiToXdc(rewards)} XDC\n`;
+            } catch (error) {
+                output.textContent += `\nError: ${error.message}\n`;
+                output.classList.add('error');
+            }
+        }
+
+        document.getElementById('inputForm').addEventListener('submit', calculateRewards);
+    </script>
+</body>
+</html>
