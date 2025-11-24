@@ -48,8 +48,8 @@
 <body>
     <h1>XDC Masternode Rewards Calculator</h1>
     <form id="inputForm">
-        <label for="rpcUrl">RPC URL (default: https://earpc.xinfin.network):</label>
-        <input type="text" id="rpcUrl" placeholder="https://earpc.xinfin.network">
+        <label for="rpcUrl">RPC URL (default: https://rpc.ankr.com/xdc):</label>
+        <input type="text" id="rpcUrl" placeholder="https://rpc.ankr.com/xdc">
 
         <label for="startDate">Start Date (YYYY-MM-DD):</label>
         <input type="date" id="startDate" required>
@@ -95,25 +95,45 @@
             return fractionalPart ? `${integerPart}.${fractionalPart}` : integerPart;
         }
 
-        // RPC call helper
+        // RPC call helper with improved error handling
         async function rpcCall(url, method, params) {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
-            });
-            const data = await response.json();
-            if (!data.result) throw new Error(`RPC Error: ${data.error?.message || 'No result'}`);
-            return data.result;
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
+                }
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(`RPC Error: ${data.error.message} (code: ${data.error.code})`);
+                }
+                return data.result;
+            } catch (e) {
+                console.error('RPC Call error:', e);
+                throw new Error(`RPC Call to ${method} failed: ${e.message}`);
+            }
         }
 
         // Etherscan API call helper
         async function etherscanCall(params, apiKey) {
             const url = `https://api.etherscan.io/api?${params}&apikey=${apiKey}&chainid=50`;
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.status !== '1') throw new Error(`Etherscan Error: ${data.message || 'Unknown error'}`);
-            return data.result;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
+                }
+                const data = await response.json();
+                if (data.status !== '1') throw new Error(`Etherscan Error: ${data.message || 'Unknown error'}`);
+                return data.result;
+            } catch (e) {
+                console.error('Etherscan Call error:', e);
+                throw new Error(`Etherscan Call failed: ${e.message}`);
+            }
         }
 
         // Binary search for block by timestamp (finds the first block >= targetTimestamp)
@@ -138,7 +158,7 @@
             output.textContent = 'Starting calculation...\n';
             output.classList.remove('error');
             try {
-                const rpcUrl = document.getElementById('rpcUrl').value || 'https://earpc.xinfin.network';
+                const rpcUrl = document.getElementById('rpcUrl').value || 'https://rpc.ankr.com/xdc';
                 const startDate = document.getElementById('startDate').value;
                 const endDate = document.getElementById('endDate').value;
                 let ownerAddr = document.getElementById('ownerAddr').value;
@@ -273,6 +293,7 @@
                 output.textContent += 'Calculation complete.\n';
             } catch (error) {
                 output.textContent += `\nError: ${error.message}\n`;
+                console.error(error);
                 output.classList.add('error');
             }
             output.scrollTop = output.scrollHeight; // Auto-scroll to bottom
