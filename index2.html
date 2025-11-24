@@ -1,73 +1,270 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="transition-colors duration-300">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XDC Masternode Rewards Calculator</title>
+    <!-- MIT License -->
+    <meta name="license" content="MIT">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --bg-gradient: linear-gradient(180deg, #2E2A6A 0%, #4A3E8A 100%);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --text: #F3E8FF;
+            --text-secondary: #E2D1F9;
+            --text-muted: #D4C2F0;
+            --border: rgba(255, 255, 255, 0.15);
+            --input-bg: #2E2A6A;
+            --btn-bg: #2E2A6A;
+            --btn-text: #A3E4FF;
+            --success: #6EE7B7;
+            --error: #FCA5A5;
+            --nav-bg: rgba(46, 42, 106, 0.7);
+        }
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text: #e0e0ff;
+            --text-secondary: #c0c0ff;
+            --text-muted: #a0a0d0;
+            --border: rgba(255, 255, 255, 0.1);
+            --input-bg: #1a1a2e;
+            --btn-bg: #1a1a2e;
+            --btn-text: #a0a0ff;
+            --nav-bg: rgba(26, 26, 46, 0.7);
+        }
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            max-width: 800px;
-            margin-left: auto;
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text);
+            margin: 0;
+            overflow-x: hidden;
+            transition: background 0.3s ease;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(6px);
+            border-radius: 20px;
+            padding: 1.25rem;
+        }
+        input, textarea {
+            background: var(--input-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--border);
+        }
+        .success { color: var(--success); }
+        .error { color: var(--error); }
+        .hidden { display: none; }
+        .link { 
+            color: #A3E4FF; 
+            text-decoration: underline; 
+            font-size: 0.75rem; 
+            display: inline-block;
             margin-right: auto;
         }
-        label {
-            display: block;
-            margin: 10px 0 5px;
+        .link:hover { text-decoration: none; }
+        .footer-links {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            font-size: 0.75rem;
         }
-        input {
+        #hero {
+            position: relative;
+        }
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            padding: 5px;
-            margin-bottom: 10px;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
         }
-        button {
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            cursor: pointer;
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            opacity: 0.2;
+            pointer-events: none;
         }
-        button:hover {
-            background-color: #0056b3;
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .hover-effect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(163, 228, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .optional-text {
+            font-size: 0.875rem; /* text-sm */
+            color: var(--text-muted);
         }
         #output {
             margin-top: 20px;
             white-space: pre-wrap;
-            background-color: #f8f9fa;
+            background-color: var(--input-bg);
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             max-height: 400px;
             overflow-y: auto;
-        }
-        .error {
-            color: red;
+            color: var(--text-muted);
         }
     </style>
 </head>
 <body>
-    <h1>XDC Masternode Rewards Calculator4</h1>
-    <form id="inputForm">
-        <label for="rpcUrl">RPC URL (default: https://rpc.ankr.com/xdc):</label>
-        <input type="text" id="rpcUrl" placeholder="https://rpc.ankr.com/xdc">
+    <!-- Dark Mode Toggle -->
+    <div class="fixed top-4 right-4 z-50">
+        <button onclick="toggleTheme()" class="bg-[#2E2A6A] text-[#A3E4FF] p-2 rounded-full hover:bg-[#3A3570] transition-all">
+            <i id="themeIcon" class="fas fa-moon"></i>
+        </button>
+    </div>
 
-        <label for="startDate">Start Date (YYYY-MM-DD):</label>
-        <input type="text" id="startDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD">
+    <!-- Navigation -->
+    <nav class="py-6 px-6 sticky top-0 z-40 bg-opacity-70 backdrop-blur-md" style="background: var(--nav-bg);">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-[#F3E8FF] max-sm:text-xl">XDC Masternode Rewards Calculator</h1>
+            <div class="nav-items space-x-8 max-sm:space-x-4 flex items-center">
+                <a href="https://s4njk4n.github.io/XDCOutpost/" class="text-[#F3E8FF] hover:text-[#A3E4FF] text-lg max-sm:text-sm">Back to Outpost</a>
+                <a href="#contact" class="text-[#F3E8FF] hover:text-[#A3E4FF] text-lg max-sm:text-sm">Contact</a>
+            </div>
+        </div>
+    </nav>
 
-        <label for="endDate">End Date (YYYY-MM-DD):</label>
-        <input type="text" id="endDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD">
+    <!-- Hero Section -->
+    <section id="hero">
+        <div id="background">
+            <div id="particles"></div>
+        </div>
+        <div class="max-w-5xl mx-auto p-6">
+            <p class="text-xl md:text-2xl text-[#E2D1F9] mb-12 max-sm:text-base">Calculate inferred masternode rewards on the XDC Network for a given address and time period.</p>
 
-        <label for="ownerAddr">Masternode Owner Address (0x... or xdc...):</label>
-        <input type="text" id="ownerAddr" required placeholder="e.g., xdc...">
+            <!-- Calculator Card -->
+            <div class="card hover-effect max-w-lg mx-auto mb-8 p-6">
+                <h2 class="text-2xl font-bold text-[#A3E4FF] mb-4">Calculate Rewards</h2>
+                <form id="inputForm">
+                    <label for="rpcUrl" class="text-sm text-[#D4C2F0] mb-2 block">RPC URL (default: https://rpc.ankr.com/xdc):</label>
+                    <input type="text" id="rpcUrl" placeholder="https://rpc.ankr.com/xdc" class="w-full p-3 mb-4 rounded-lg bg-[#2E2A6A] text-[#F3E8FF] border border-[#A3E4FF]/30 focus:outline-none max-sm:text-sm">
 
-        <label for="apiKey">Etherscan API Key:</label>
-        <input type="text" id="apiKey" required>
+                    <label for="startDate" class="text-sm text-[#D4C2F0] mb-2 block">Start Date (YYYY-MM-DD):</label>
+                    <input type="text" id="startDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD" class="w-full p-3 mb-4 rounded-lg bg-[#2E2A6A] text-[#F3E8FF] border border-[#A3E4FF]/30 focus:outline-none max-sm:text-sm">
 
-        <button type="submit">Calculate Rewards</button>
-    </form>
-    <div id="output"></div>
+                    <label for="endDate" class="text-sm text-[#D4C2F0] mb-2 block">End Date (YYYY-MM-DD):</label>
+                    <input type="text" id="endDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD" class="w-full p-3 mb-4 rounded-lg bg-[#2E2A6A] text-[#F3E8FF] border border-[#A3E4FF]/30 focus:outline-none max-sm:text-sm">
+
+                    <label for="ownerAddr" class="text-sm text-[#D4C2F0] mb-2 block">Masternode Owner Address (0x... or xdc...):</label>
+                    <input type="text" id="ownerAddr" required placeholder="e.g., xdc..." class="w-full p-3 mb-4 rounded-lg bg-[#2E2A6A] text-[#F3E8FF] border border-[#A3E4FF]/30 focus:outline-none max-sm:text-sm">
+
+                    <label for="apiKey" class="text-sm text-[#D4C2F0] mb-2 block">Etherscan API Key:</label>
+                    <input type="text" id="apiKey" required class="w-full p-3 mb-6 rounded-lg bg-[#2E2A6A] text-[#F3E8FF] border border-[#A3E4FF]/30 focus:outline-none max-sm:text-sm">
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-[#A3E4FF] to-[#FFD1DC] text-[#2E2A6A] font-semibold py-3 px-6 rounded-full hover-effect max-sm:py-2 max-sm:text-sm">Calculate Rewards</button>
+                </form>
+                <div id="output"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="pt-20 pb-4 px-6">
+        <div class="max-w-5xl mx-auto text-center">
+            <h2 class="text-4xl md:text-5xl font-bold text-[#A3E4FF] mb-12 max-sm:text-2xl">Connect</h2>
+            <p class="text-[#E2D1F9] mb-8 text-lg max-sm:text-sm">Have questions or need support for XDC Sentinel or other services? Reach out to me on your preferred platform:</p>
+            <div class="social-links flex justify-center flex-wrap gap-8 max-sm:gap-4">
+                <a href="https://t.me/s4njk4n" target="_blank" class="social-icon text-3xl max-sm:text-xl" aria-label="Contact us on Telegram" title="Contact us on Telegram (@s4njk4n)">
+                    <i class="fa-brands fa-telegram"></i> <span class="text-lg max-sm:text-sm ml-2">Telegram: @s4njk4n</span>
+                </a>
+                <a href="https://discord.com/users/852434672793288724" target="_blank" class="social-icon text-3xl max-sm:text-xl" aria-label="Contact us on Discord" title="Contact us on Discord (@s4njk4n)">
+                    <i class="fa-brands fa-discord"></i> <span class="text-lg max-sm:text-sm ml-2">Discord: @s4njk4n</span>
+                </a>
+                <a href="https://x.com/s4njk4n" target="_blank" class="social-icon text-3xl max-sm:text-xl" aria-label="Visit our X profile" title="Visit our X profile (@s4njk4n)">
+                    <i class="fa-brands fa-x-twitter"></i> <span class="text-lg max-sm:text-sm ml-2">X: @s4njk4n</span>
+                </a>
+                <a href="https://github.com/s4njk4n" target="_blank" class="social-icon text-3xl max-sm:text-xl" aria-label="Visit our GitHub profile" title="Visit our GitHub profile (s4njk4n)">
+                    <i class="fa-brands fa-github"></i> <span class="text-lg max-sm:text-sm ml-2">GitHub: s4njk4n</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-10 px-6 text-center text-[#D4C2F0]">
+        <p class="max-sm:text-sm">© 2025 XDC Outpost. All rights reserved. Powered by <a href="https://github.com/s4njk4n?tab=repositories" target="_blank" class="text-[#A3E4FF] hover:underline">s4njk4n</a>.</p>
+        <p class="mt-2">
+            <a href="https://www.hitwebcounter.com/" target="_blank">
+                <img src="https://hitwebcounter.com/counter/counter.php?page=21458660&style=0038&nbdigits=5&type=page&initCount=0" title="Free Tools" alt="Free Tools" border="0" style="display: block; margin: 0 auto;" />
+            </a>
+        </p>    
+    </footer>
 
     <script>
+        // === Theme Toggle ===
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            if (html.hasAttribute('data-theme')) {
+                html.removeAttribute('data-theme');
+                icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeIcon').classList.replace('fa-moon', 'fa-sun');
+        }
+
+        // === Animations ===
+        const particlesContainer = document.getElementById('particles');
+        function initParticles() {
+            for (let i = 0; i < 30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = `${Math.random() * 100}%`;
+                p.style.top = `${Math.random() * 100}%`;
+                p.style.animation = `float ${5 + Math.random() * 3}s infinite`;
+                particlesContainer.appendChild(p);
+            }
+        }
+        initParticles();
+
+        function randomizeClouds() {
+            const bg = document.querySelector('#background');
+            const rand = () => 20 + Math.random() * 60;
+            bg.style.setProperty('--cloud1-left', `${rand()}%`);
+            bg.style.setProperty('--cloud2-left', `${rand()}%`);
+            bg.style.setProperty('--cloud1-top', `${rand()}%`);
+            bg.style.setProperty('--cloud2-top', `${rand()}%`);
+        }
+        randomizeClouds();
+        setInterval(randomizeClouds, 10000);
+
+        window.onload = () => {
+            initParticles();
+            randomizeClouds();
+            setInterval(randomizeClouds, 10000);
+        };
+
+        // Calculator Script
         // Convert xdc prefix to 0x
         function convertAddress(addr) {
             return addr.startsWith('xdc') ? '0x' + addr.slice(3) : addr;
