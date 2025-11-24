@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XDC Masternode Rewards Calculator2</title>
+    <title>XDC Masternode Rewards Calculator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -46,7 +46,7 @@
     </style>
 </head>
 <body>
-    <h1>XDC Masternode Rewards Calculator</h1>
+    <h1>XDC Masternode Rewards Calculator3</h1>
     <form id="inputForm">
         <label for="rpcUrl">RPC URL (default: https://rpc.ankr.com/xdc):</label>
         <input type="text" id="rpcUrl" placeholder="https://rpc.ankr.com/xdc">
@@ -118,9 +118,9 @@
             }
         }
 
-        // Etherscan API call helper
+        // Etherscan API call helper (using v2)
         async function etherscanCall(params, apiKey) {
-            const url = `https://api.etherscan.io/api?${params}&apikey=${apiKey}&chainid=50`;
+            const url = `https://api.etherscan.io/v2/api?${params}&apikey=${apiKey}&chainid=50`;
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -233,7 +233,7 @@
                         const gasPriceDec = BigInt(tx.gasPrice);
                         output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei, Gas Used: ${gasUsedDec}, Gas Price: ${gasPriceDec} wei\n`;
 
-                        if (tx.to.toLowerCase() === ownerAddr) {
+                        if (tx.to && tx.to.toLowerCase() === ownerAddr) {
                             transfersIn += valueDec;
                             output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Running Total In: ${weiToXdc(transfersIn)}\n`;
                         }
@@ -265,7 +265,7 @@
                         const valueDec = BigInt(tx.value);
                         output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei\n`;
 
-                        if (tx.to.toLowerCase() === ownerAddr) {
+                        if (tx.to && tx.to.toLowerCase() === ownerAddr) {
                             transfersIn += valueDec;
                             output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Running Total In: ${weiToXdc(transfersIn)}\n`;
                         }
