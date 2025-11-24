@@ -46,16 +46,16 @@
     </style>
 </head>
 <body>
-    <h1>XDC Masternode Rewards Calculator3</h1>
+    <h1>XDC Masternode Rewards Calculator4</h1>
     <form id="inputForm">
         <label for="rpcUrl">RPC URL (default: https://rpc.ankr.com/xdc):</label>
         <input type="text" id="rpcUrl" placeholder="https://rpc.ankr.com/xdc">
 
         <label for="startDate">Start Date (YYYY-MM-DD):</label>
-        <input type="date" id="startDate" required>
+        <input type="text" id="startDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD">
 
         <label for="endDate">End Date (YYYY-MM-DD):</label>
-        <input type="date" id="endDate" required>
+        <input type="text" id="endDate" required pattern="\d{4}-\d{2}-\d{2}" placeholder="YYYY-MM-DD">
 
         <label for="ownerAddr">Masternode Owner Address (0x... or xdc...):</label>
         <input type="text" id="ownerAddr" required placeholder="e.g., xdc...">
@@ -128,27 +128,61 @@
                     throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
                 }
                 const data = await response.json();
-                if (data.status !== '1') throw new Error(`Etherscan Error: ${data.message || 'Unknown error'}`);
-                return data.result;
+                if (data.status === '1') {
+                    return data.result;
+                } else if (data.status === '0' && (data.message === 'No transactions found' || data.message === 'NOTOK' && data.result === 'No transactions found')) {
+                    return [];
+                } else {
+                    throw new Error(`Etherscan Error: ${data.message || 'Unknown error'}`);
+                }
             } catch (e) {
                 console.error('Etherscan Call error:', e);
                 throw new Error(`Etherscan Call failed: ${e.message}`);
             }
         }
 
-        // Binary search for block by timestamp (finds the first block >= targetTimestamp)
-        async function findBlockByTimestamp(rpcUrl, targetTimestamp, latestBlock) {
+        // Binary search for first block >= targetTimestamp
+        async function findFirstBlockGeTimestamp(rpcUrl, targetTimestamp, latestBlock, output) {
             let low = 0;
             let high = parseInt(latestBlock, 16);
+            output.textContent += `Initiating binary search for first block >= ${targetTimestamp}: low=${low}, high=${high}\n`;
             while (low <= high) {
                 const mid = Math.floor((low + high) / 2);
                 const blockHex = '0x' + mid.toString(16);
+                output.textContent += `Checking mid block ${mid} (${blockHex})...\n`;
                 const block = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [blockHex, false]);
                 const blockTimestamp = parseInt(block.timestamp, 16);
-                if (blockTimestamp < targetTimestamp) low = mid + 1;
-                else high = mid - 1;
+                output.textContent += `Block ${mid} timestamp: ${blockTimestamp} (${new Date(blockTimestamp * 1000).toISOString()})\n`;
+                if (blockTimestamp < targetTimestamp) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
             }
+            output.textContent += `Binary search completed. First block >= timestamp: ${low}\n`;
             return low;
+        }
+
+        // Binary search for last block <= targetTimestamp
+        async function findLastBlockLeTimestamp(rpcUrl, targetTimestamp, latestBlock, output) {
+            let low = 0;
+            let high = parseInt(latestBlock, 16);
+            output.textContent += `Initiating binary search for last block <= ${targetTimestamp}: low=${low}, high=${high}\n`;
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const blockHex = '0x' + mid.toString(16);
+                output.textContent += `Checking mid block ${mid} (${blockHex})...\n`;
+                const block = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [blockHex, false]);
+                const blockTimestamp = parseInt(block.timestamp, 16);
+                output.textContent += `Block ${mid} timestamp: ${blockTimestamp} (${new Date(blockTimestamp * 1000).toISOString()})\n`;
+                if (blockTimestamp <= targetTimestamp) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            output.textContent += `Binary search completed. Last block <= timestamp: ${high}\n`;
+            return high;
         }
 
         // Main calculation function
@@ -177,8 +211,8 @@
                 // Convert dates to timestamps
                 const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
                 const endTimestamp = Math.floor(new Date(endDate + 'T23:59:59.999Z').getTime() / 1000);
-                output.textContent += `Start Timestamp: ${startTimestamp}\n`;
-                output.textContent += `End Timestamp: ${endTimestamp}\n`;
+                output.textContent += `Start Timestamp: ${startTimestamp} (${new Date(startTimestamp * 1000).toISOString()})\n`;
+                output.textContent += `End Timestamp: ${endTimestamp} (${new Date(endTimestamp * 1000).toISOString()})\n`;
 
                 // Get latest block
                 output.textContent += 'Fetching latest block number...\n';
@@ -186,20 +220,29 @@
                 output.textContent += `Latest block: ${parseInt(latestBlock, 16)} (hex: ${latestBlock})\n`;
 
                 // Find start and end blocks
-                output.textContent += 'Searching for start block using binary search...\n';
-                const startBlock = await findBlockByTimestamp(rpcUrl, startTimestamp, latestBlock);
-                output.textContent += `Start block found: ${startBlock}\n`;
+                output.textContent += 'Searching for start block (first >= start timestamp)...\n';
+                const firstPeriodBlock = await findFirstBlockGeTimestamp(rpcUrl, startTimestamp, latestBlock, output);
+                let startBalanceBlock = firstPeriodBlock - 1;
+                if (startBalanceBlock < 0) startBalanceBlock = 0;
 
-                output.textContent += 'Searching for end block using binary search...\n';
-                const endBlock = await findBlockByTimestamp(rpcUrl, endTimestamp, latestBlock);
-                output.textContent += `End block found: ${endBlock}\n`;
+                output.textContent += 'Searching for end block (last <= end timestamp)...\n';
+                const endBlock = await findLastBlockLeTimestamp(rpcUrl, endTimestamp, latestBlock, output);
+
+                // Verify timestamps
+                const firstBlockHex = '0x' + firstPeriodBlock.toString(16);
+                const firstBlock = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [firstBlockHex, false]);
+                const firstTs = parseInt(firstBlock.timestamp, 16);
+                output.textContent += `Verified first period block ${firstPeriodBlock} timestamp: ${firstTs} (${new Date(firstTs * 1000).toISOString()})\n`;
+
+                const endBlockHex = '0x' + endBlock.toString(16);
+                const endBlockInfo = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [endBlockHex, false]);
+                const endTs = parseInt(endBlockInfo.timestamp, 16);
+                output.textContent += `Verified end block ${endBlock} timestamp: ${endTs} (${new Date(endTs * 1000).toISOString()})\n`;
 
                 // Get balances
-                const startBlockHex = '0x' + startBlock.toString(16);
-                const endBlockHex = '0x' + endBlock.toString(16);
-
-                output.textContent += `Fetching starting balance at block ${startBlock} (${startBlockHex})...\n`;
-                const startBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, startBlockHex]);
+                const startBalanceBlockHex = '0x' + startBalanceBlock.toString(16);
+                output.textContent += `Fetching starting balance at block ${startBalanceBlock} (${startBalanceBlockHex})...\n`;
+                const startBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, startBalanceBlockHex]);
                 const startBalanceDec = hexToDec(startBalance);
                 output.textContent += `Starting balance: ${startBalance} (hex), ${startBalanceDec} (wei), ${weiToXdc(startBalanceDec)} XDC\n`;
 
@@ -208,7 +251,7 @@
                 const endBalanceDec = hexToDec(endBalance);
                 output.textContent += `Ending balance: ${endBalance} (hex), ${endBalanceDec} (wei), ${weiToXdc(endBalanceDec)} XDC\n`;
 
-                // Calculate transactions
+                // Calculate transactions (from firstPeriodBlock to endBlock)
                 let transfersIn = 0n;
                 let transfersOut = 0n;
                 let totalFees = 0n;
@@ -219,7 +262,7 @@
                 output.textContent += 'Fetching normal transactions...\n';
                 while (true) {
                     output.textContent += `Fetching normal transactions page ${page}...\n`;
-                    const params = `module=account&action=txlist&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const params = `module=account&action=txlist&address=${ownerAddr}&startblock=${firstPeriodBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
                     const txs = await etherscanCall(params, apiKey);
                     if (!txs || txs.length === 0) {
                         output.textContent += `No more normal transactions on page ${page}.\n`;
@@ -253,7 +296,7 @@
                 output.textContent += 'Fetching internal transactions...\n';
                 while (true) {
                     output.textContent += `Fetching internal transactions page ${page}...\n`;
-                    const params = `module=account&action=txlistinternal&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const params = `module=account&action=txlistinternal&address=${ownerAddr}&startblock=${firstPeriodBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
                     const internalTxs = await etherscanCall(params, apiKey);
                     if (!internalTxs || internalTxs.length === 0) {
                         output.textContent += `No more internal transactions on page ${page}.\n`;
