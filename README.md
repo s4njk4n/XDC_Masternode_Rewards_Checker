@@ -39,7 +39,7 @@ It spits out the total inferred rewards in XDC, plus a breakdown of balances, tr
 
    Everything's handled in wei (the smallest unit of XDC, like satoshis in Bitcoin) to avoid rounding errors, then converted to readable XDC amounts.
 
-It shows a log of everything in the output box so you can see what's happening (and I can debug later if needed as well).
+It shows a log of everything in the output box so you can see what's happening.
 
 Note: This assumes all unexplained balance increases are from masternode rewards. If there's other stuff like airdrops or whatever hitting your wallet, it might skew things. Also, it only works for XDC mainnet.
 
