@@ -1,6 +1,6 @@
 # XDC Masternode Rewards Calculator
 
-![XDC Masternode Rewards Checker](XDC_Masternode_Rewards_Checker.jpg)
+![XDC Masternode Rewards Checker](XDC_Masternode_Rewards_Checker2.jpg)
 
 This is a simple web tool to figure out the rewards your XDC masternode earned over a specific time period. It looks at your wallet's balance changes and subtracts out any transactions or fees to infer what must have come from masternode rewards on the XDC network.
 
