@@ -23,8 +23,6 @@ It spits out the total inferred rewards in XDC, plus a breakdown of balances, tr
 
 ## How It Works
 
-Here's the step-by-step under the hood, kept simple:
-
 1. **Date to Blocks Conversion**: It takes your start and end dates, converts them to Unix timestamps, and uses binary search on the blockchain to find the exact block numbers where your period starts and ends.
 
 2. **Balance Checks**: It grabs your wallet balance right before the start block and at the end block using RPC calls to an XDC node (default is a public one from Ankr).
