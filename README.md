@@ -1,3 +1,5 @@
+_In Beta_
+
 # XDC Masternode Rewards Calculator
 
 Live site is at: https://s4njk4n.github.io/XDC_Masternode_Rewards_Calculator/
