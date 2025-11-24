@@ -1,4 +1,4 @@
-_In Beta_
+_In Beta - Let me know if you find specific issues_
 
 # XDC Masternode Rewards Calculator
 
