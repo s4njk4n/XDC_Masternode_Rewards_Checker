@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XDC Masternode Rewards Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>XDC Masternode Rewards Calculator</h1>
+    <form id="inputForm">
+        <label for="rpcUrl">RPC URL (default: https://earpc.xinfin.network):</label>
+        <input type="text" id="rpcUrl" placeholder="https://earpc.xinfin.network">
+
+        <label for="startDate">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="startDate" required>
+
+        <label for="endDate">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="endDate" required>
+
+        <label for="ownerAddr">Masternode Owner Address (0x... or xdc...):</label>
+        <input type="text" id="ownerAddr" required placeholder="e.g., xdc...">
+
+        <label for="apiKey">Etherscan API Key:</label>
+        <input type="text" id="apiKey" required>
+
+        <button type="submit">Calculate Rewards</button>
+    </form>
+    <div id="output"></div>
+
+    <script>
+        // Convert xdc prefix to 0x
+        function convertAddress(addr) {
+            return addr.startsWith('xdc') ? '0x' + addr.slice(3) : addr;
+        }
+
+        // Validate date format (YYYY-MM-DD)
+        function validateDate(dateStr) {
+            const regex = /^\d{4}-\d{2}-\d{2}$/;
+            return regex.test(dateStr);
+        }
+
+        // Convert hex to decimal
+        function hexToDec(hex) {
+            if (hex.startsWith('0x')) {
+                return BigInt(hex).toString();
+            }
+            return hex; // Already decimal
+        }
+
+        // Format wei to XDC
+        function weiToXdc(wei) {
+            const bigWei = BigInt(wei);
+            const integerPart = (bigWei / BigInt(1000000000000000000n)).toString();
+            const fractionalPart = (bigWei % BigInt(1000000000000000000n)).toString().padStart(18, '0').replace(/0+$/, '');
+            return fractionalPart ? `${integerPart}.${fractionalPart}` : integerPart;
+        }
+
+        // RPC call helper
+        async function rpcCall(url, method, params) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+            });
+            const data = await response.json();
+            if (!data.result) throw new Error(`RPC Error: ${data.error?.message || 'No result'}`);
+            return data.result;
+        }
+
+        // Etherscan API call helper
+        async function etherscanCall(params, apiKey) {
+            const url = `https://api.etherscan.io/api?${params}&apikey=${apiKey}&chainid=50`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.status !== '1') throw new Error(`Etherscan Error: ${data.message || 'Unknown error'}`);
+            return data.result;
+        }
+
+        // Binary search for block by timestamp (finds the first block >= targetTimestamp)
+        async function findBlockByTimestamp(rpcUrl, targetTimestamp, latestBlock) {
+            let low = 0;
+            let high = parseInt(latestBlock, 16);
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const blockHex = '0x' + mid.toString(16);
+                const block = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [blockHex, false]);
+                const blockTimestamp = parseInt(block.timestamp, 16);
+                if (blockTimestamp < targetTimestamp) low = mid + 1;
+                else high = mid - 1;
+            }
+            return low;
+        }
+
+        // Main calculation function
+        async function calculateRewards(event) {
+            event.preventDefault();
+            const output = document.getElementById('output');
+            output.textContent = 'Starting calculation...\n';
+            output.classList.remove('error');
+            try {
+                const rpcUrl = document.getElementById('rpcUrl').value || 'https://earpc.xinfin.network';
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                let ownerAddr = document.getElementById('ownerAddr').value;
+                const apiKey = document.getElementById('apiKey').value;
+
+                // Validate inputs
+                if (!validateDate(startDate) || !validateDate(endDate)) throw new Error('Invalid date format. Use YYYY-MM-DD');
+                ownerAddr = convertAddress(ownerAddr).toLowerCase();
+                if (!/^0x[a-f0-9]{40}$/.test(ownerAddr)) throw new Error('Invalid address format');
+                if (!apiKey) throw new Error('Etherscan API Key is required');
+
+                output.textContent += `Using RPC: ${rpcUrl}\n`;
+                output.textContent += `Address: ${ownerAddr}\n`;
+                output.textContent += `Period: ${startDate} to ${endDate}\n`;
+
+                // Convert dates to timestamps
+                const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+                const endTimestamp = Math.floor(new Date(endDate + 'T23:59:59.999Z').getTime() / 1000);
+                output.textContent += `Start Timestamp: ${startTimestamp}\n`;
+                output.textContent += `End Timestamp: ${endTimestamp}\n`;
+
+                // Get latest block
+                output.textContent += 'Fetching latest block number...\n';
+                const latestBlock = await rpcCall(rpcUrl, 'eth_blockNumber', []);
+                output.textContent += `Latest block: ${parseInt(latestBlock, 16)} (hex: ${latestBlock})\n`;
+
+                // Find start and end blocks
+                output.textContent += 'Searching for start block using binary search...\n';
+                const startBlock = await findBlockByTimestamp(rpcUrl, startTimestamp, latestBlock);
+                output.textContent += `Start block found: ${startBlock}\n`;
+
+                output.textContent += 'Searching for end block using binary search...\n';
+                const endBlock = await findBlockByTimestamp(rpcUrl, endTimestamp, latestBlock);
+                output.textContent += `End block found: ${endBlock}\n`;
+
+                // Get balances
+                const startBlockHex = '0x' + startBlock.toString(16);
+                const endBlockHex = '0x' + endBlock.toString(16);
+
+                output.textContent += `Fetching starting balance at block ${startBlock} (${startBlockHex})...\n`;
+                const startBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, startBlockHex]);
+                const startBalanceDec = hexToDec(startBalance);
+                output.textContent += `Starting balance: ${startBalance} (hex), ${startBalanceDec} (wei), ${weiToXdc(startBalanceDec)} XDC\n`;
+
+                output.textContent += `Fetching ending balance at block ${endBlock} (${endBlockHex})...\n`;
+                const endBalance = await rpcCall(rpcUrl, 'eth_getBalance', [ownerAddr, endBlockHex]);
+                const endBalanceDec = hexToDec(endBalance);
+                output.textContent += `Ending balance: ${endBalance} (hex), ${endBalanceDec} (wei), ${weiToXdc(endBalanceDec)} XDC\n`;
+
+                // Calculate transactions
+                let transfersIn = 0n;
+                let transfersOut = 0n;
+                let totalFees = 0n;
+                const offset = 10000;
+
+                // Normal transactions
+                let page = 1;
+                output.textContent += 'Fetching normal transactions...\n';
+                while (true) {
+                    output.textContent += `Fetching normal transactions page ${page}...\n`;
+                    const params = `module=account&action=txlist&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const txs = await etherscanCall(params, apiKey);
+                    if (!txs || txs.length === 0) {
+                        output.textContent += `No more normal transactions on page ${page}.\n`;
+                        break;
+                    }
+                    output.textContent += `Received ${txs.length} normal transactions on page ${page}.\n`;
+
+                    for (const tx of txs) {
+                        const valueDec = BigInt(tx.value);
+                        const gasUsedDec = BigInt(tx.gasUsed);
+                        const gasPriceDec = BigInt(tx.gasPrice);
+                        output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei, Gas Used: ${gasUsedDec}, Gas Price: ${gasPriceDec} wei\n`;
+
+                        if (tx.to.toLowerCase() === ownerAddr) {
+                            transfersIn += valueDec;
+                            output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Running Total In: ${weiToXdc(transfersIn)}\n`;
+                        }
+                        if (tx.from.toLowerCase() === ownerAddr) {
+                            transfersOut += valueDec;
+                            const fee = gasUsedDec * gasPriceDec;
+                            totalFees += fee;
+                            output.textContent += `  Outgoing: ${weiToXdc(valueDec)} XDC, Fee: ${weiToXdc(fee)} XDC, Running Total Out: ${weiToXdc(transfersOut)}, Running Total Fees: ${weiToXdc(totalFees)}\n`;
+                        }
+                    }
+                    if (txs.length < offset) break;
+                    page++;
+                }
+
+                // Internal transactions
+                page = 1;
+                output.textContent += 'Fetching internal transactions...\n';
+                while (true) {
+                    output.textContent += `Fetching internal transactions page ${page}...\n`;
+                    const params = `module=account&action=txlistinternal&address=${ownerAddr}&startblock=${startBlock}&endblock=${endBlock}&page=${page}&offset=${offset}&sort=asc`;
+                    const internalTxs = await etherscanCall(params, apiKey);
+                    if (!internalTxs || internalTxs.length === 0) {
+                        output.textContent += `No more internal transactions on page ${page}.\n`;
+                        break;
+                    }
+                    output.textContent += `Received ${internalTxs.length} internal transactions on page ${page}.\n`;
+
+                    for (const tx of internalTxs) {
+                        const valueDec = BigInt(tx.value);
+                        output.textContent += `- Hash: ${tx.hash}, From: ${tx.from}, To: ${tx.to}, Value: ${valueDec} wei\n`;
+
+                        if (tx.to.toLowerCase() === ownerAddr) {
+                            transfersIn += valueDec;
+                            output.textContent += `  Incoming: ${weiToXdc(valueDec)} XDC, Running Total In: ${weiToXdc(transfersIn)}\n`;
+                        }
+                        if (tx.from.toLowerCase() === ownerAddr) {
+                            transfersOut += valueDec;
+                            output.textContent += `  Outgoing: ${weiToXdc(valueDec)} XDC, Running Total Out: ${weiToXdc(transfersOut)}\n`;
+                        }
+                    }
+                    if (internalTxs.length < offset) break;
+                    page++;
+                }
+
+                // Calculate rewards
+                const netBalanceChange = BigInt(endBalanceDec) - BigInt(startBalanceDec);
+                const adjustments = BigInt(transfersIn) - BigInt(transfersOut) - BigInt(totalFees);
+                const rewards = netBalanceChange - adjustments;
+
+                output.textContent += '\nFinal Results:\n';
+                output.textContent += `Net Balance Change: ${netBalanceChange} wei (${weiToXdc(netBalanceChange)} XDC)\n`;
+                output.textContent += `Total Transfers In: ${transfersIn} wei (${weiToXdc(transfersIn)} XDC)\n`;
+                output.textContent += `Total Transfers Out: ${transfersOut} wei (${weiToXdc(transfersOut)} XDC)\n`;
+                output.textContent += `Total Fees: ${totalFees} wei (${weiToXdc(totalFees)} XDC)\n`;
+                output.textContent += `Adjustments (In - Out - Fees): ${adjustments} wei (${weiToXdc(adjustments)} XDC)\n`;
+                output.textContent += `Inferred Masternode Rewards from ${startDate} to ${endDate}: ${weiToXdc(rewards)} XDC\n`;
+                output.textContent += 'Calculation complete.\n';
+            } catch (error) {
+                output.textContent += `\nError: ${error.message}\n`;
+                output.classList.add('error');
+            }
+            output.scrollTop = output.scrollHeight; // Auto-scroll to bottom
+        }
+
+        document.getElementById('inputForm').addEventListener('submit', calculateRewards);
+    </script>
+</body>
+</html>
