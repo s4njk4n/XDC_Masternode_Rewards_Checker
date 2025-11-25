@@ -41,7 +41,7 @@ It spits out the total inferred rewards in XDC, plus a breakdown of balances, tr
 
 It shows a log of everything in the output box so you can see what's happening.
 
-Note: This assumes all unexplained balance increases are from masternode rewards. If there's other stuff like airdrops or whatever hitting your wallet, it might skew things. Also, it only works for XDC mainnet.
+Note: This assumes all unexplained balance increases are from masternode rewards. Also, it only works for XDC mainnet.
 
 ## How to Use It
 
