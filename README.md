@@ -1,25 +1,25 @@
 _In Beta - Let me know if you find specific issues_
 
-# XDC Masternode Rewards Calculator
+# XDC Masternode Epoch Rewards Calculator
 
 Live site is at: https://s4njk4n.github.io/XDC_Masternode_Rewards_Calculator/
 
 ![XDC Masternode Rewards Checker](XDC_Masternode_Rewards_Checker2.jpg)
 
-This is a simple web tool to figure out the rewards your XDC masternode earned over a specific time period. It looks at your wallet's balance changes and subtracts out any transactions or fees to infer what must have come from masternode rewards on the XDC network.
+This is a simple web tool to figure out the epoch rewards your XDC masternode earned over a specific time period. It looks at your wallet's balance changes and subtracts out any transactions or fees to infer what must have come from masternode epoch rewards on the XDC network.
 
-I built this because tracking masternode rewards manually is a pain, especially if you're not deep into blockchain.
+I built this because tracking epoch rewards manually is a pain, especially if you're not deep into blockchain.
 
 ## What It Does
 
-The tool calculates "inferred" rewards for a masternode owner address between two dates. "Inferred" means it doesn't directly query rewards from the network; instead, it looks at how your balance changed and accounts for any sends, receives, or gas fees in that period. Whatever's left over is assumed to be from masternode payouts.
+The tool calculates "inferred" epoch rewards for a masternode owner address between two dates. "Inferred" means it doesn't directly query epoch rewards from the network; instead, it looks at how your balance changed and accounts for any sends, receives, or gas fees in that period. Whatever's left over is assumed to be from masternode epoch reward payouts.
 
 It works on the XDC mainnet (chain ID 50). You provide:
 - A start and end date (like 2023-01-01 to 2023-12-31).
 - Your masternode owner address (starts with 0x or xdc).
 - An Etherscan API key (more on that below).
 
-It spits out the total inferred rewards in XDC, plus a breakdown of balances, transfers, and fees for transparency.
+It spits out the total inferred epoch rewards in XDC, plus a breakdown of balances, transfers, and fees for transparency.
 
 ## How It Works
 
@@ -32,7 +32,7 @@ It spits out the total inferred rewards in XDC, plus a breakdown of balances, tr
    - Money going out (transfers from you).
    - Gas fees you paid for transactions.
 
-4. **Reward Calculation**:
+4. **Epoch Reward Calculation**:
    - Net change = End balance - Start balance.
    - Adjustments = Incoming transfers - Outgoing transfers - Fees.
    - Rewards = Net change - Adjustments.
@@ -41,7 +41,7 @@ It spits out the total inferred rewards in XDC, plus a breakdown of balances, tr
 
 It shows a log of everything in the output box so you can see what's happening.
 
-Note: This assumes all unexplained balance increases are from masternode rewards. Also, it only works for XDC mainnet.
+Note: This assumes all unexplained balance increases are from masternode epoch rewards. Also, it only works for XDC mainnet.
 
 ## How to Use It
 
