@@ -526,12 +526,15 @@
                 const rewards = netBalanceChange - adjustments;
 
                 output.textContent += '\nFinal Results:\n';
+                output.textContent += '\n';
                 output.textContent += `Net Balance Change: ${netBalanceChange} wei (${weiToXdc(netBalanceChange)} XDC)\n`;
                 output.textContent += `Total Transfers In: ${transfersIn} wei (${weiToXdc(transfersIn)} XDC)\n`;
                 output.textContent += `Total Transfers Out: ${transfersOut} wei (${weiToXdc(transfersOut)} XDC)\n`;
                 output.textContent += `Total Fees: ${totalFees} wei (${weiToXdc(totalFees)} XDC)\n`;
                 output.textContent += `Adjustments (In - Out - Fees): ${adjustments} wei (${weiToXdc(adjustments)} XDC)\n`;
+                output.textContent += '\n';
                 output.textContent += `Inferred Masternode Epoch Rewards from ${startDate} to ${endDate}: ${weiToXdc(rewards)} XDC\n`;
+                output.textContent += '\n';
                 output.textContent += 'Calculation complete.\n';
             } catch (error) {
                 output.textContent += `\nError: ${error.message}\n`;
