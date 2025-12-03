@@ -154,7 +154,7 @@
             <div id="particles"></div>
         </div>
         <div class="max-w-5xl mx-auto p-6">
-            <p class="text-xl md:text-2xl text-[#E2D1F9] mb-12 max-sm:text-base">Calculate inferred masternode epoch rewards on the XDC Network for a given address and time period.</p>
+            <p class="text-xl md:text-2xl text-[#E2D1F9] mb-12 max-sm:text-base">Calculate masternode epoch rewards on the XDC Network for a given address and time period.</p>
 
             <!-- Calculator Card -->
             <div class="card hover-effect max-w-lg mx-auto mb-8 p-6">
@@ -531,7 +531,7 @@
                 output.textContent += `Total Transfers Out: ${transfersOut} wei (${weiToXdc(transfersOut)} XDC)\n`;
                 output.textContent += `Total Fees: ${totalFees} wei (${weiToXdc(totalFees)} XDC)\n`;
                 output.textContent += `Adjustments (In - Out - Fees): ${adjustments} wei (${weiToXdc(adjustments)} XDC)\n`;
-                output.textContent += `Inferred Masternode Rewards from ${startDate} to ${endDate}: ${weiToXdc(rewards)} XDC\n`;
+                output.textContent += `Inferred Masternode Epoch Rewards from ${startDate} to ${endDate}: ${weiToXdc(rewards)} XDC\n`;
                 output.textContent += 'Calculation complete.\n';
             } catch (error) {
                 output.textContent += `\nError: ${error.message}\n`;
